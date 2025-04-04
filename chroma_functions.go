@@ -6,38 +6,14 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"testing"
 
 	chroma "github.com/amikos-tech/chroma-go"
 	chromaOpenai "github.com/amikos-tech/chroma-go/openai"
 	"github.com/amikos-tech/chroma-go/types"
 	"github.com/gocarina/gocsv"
-	"github.com/sashabaranov/go-openai"
 )
 
-func TestVectorQuery(t *testing.T) {
-
-	//openai setup
-	openaiKey := os.Getenv("openai_key_temp")
-
-	aiClient := openai.NewClient(openaiKey)
-	resp, err := aiClient.CreateChatCompletion(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model: openai.GPT4oMini,
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: "Logan!",
-				},
-			},
-		},
-	)
-	if err != nil {
-		fmt.Printf("ChatCompletion error: %v\n", err)
-		return
-	}
-	fmt.Println(resp.Choices[0].Message.Content)
+func SetupDb() {
 
 	//chroma setup
 	classesFile, err := os.OpenFile("Fall 2024 Class Schedule 08082024.csv", os.O_RDWR|os.O_CREATE, os.ModePerm)
@@ -124,7 +100,7 @@ func TestVectorQuery(t *testing.T) {
 
 	// Query the collection
 	fmt.Printf("countDocs: %v\n", countDocs) //this should result in 2
-	qr, qrerr := collection.Query(context.TODO(), []string{"Logan"}, 1, nil, nil, nil)
+	qr, qrerr := collection.Query(context.TODO(), []string{"cs272"}, 5, nil, nil, nil)
 	if qrerr != nil {
 		log.Fatalf("Error querying documents: %s \n", qrerr)
 	}
