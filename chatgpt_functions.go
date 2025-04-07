@@ -7,20 +7,27 @@ import (
 	"github.com/sashabaranov/go-openai"
 )
 
-func Chat(prompt string) (response string, err error) {
+func SetupAiClient() (aiClient *openai.Client) {
 	//openai setup
 	openaiKey := os.Getenv("openai_key_temp")
 
-	aiClient := openai.NewClient(openaiKey)
+	aiClient = openai.NewClient(openaiKey)
+	return aiClient
+}
+
+func GetNamedEntity(aiClient *openai.Client, prompt string) (namedEntityJson string, err error) {
+
+	fullPrompt := "respond with the full name of the person named in this question. " + prompt
+
 	messages := []openai.ChatCompletionMessage{
 		{
 			Role:    openai.ChatMessageRoleUser,
-			Content: prompt,
+			Content: fullPrompt,
 		},
 		{
 			Role: openai.ChatMessageRoleSystem,
-			Content: `You are a bubbly, excited chatbot 
-			which answers question about the USF course catalog`,
+			Content: `You are a chatbot 
+			which answers question about the USF course catalog and gives responses in JSON format`,
 		},
 	}
 

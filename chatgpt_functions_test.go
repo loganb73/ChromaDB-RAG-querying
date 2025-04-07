@@ -5,9 +5,12 @@ import (
 	"testing"
 )
 
-func TestChat(t *testing.T) {
+func TestGetNamedEntity(t *testing.T) {
+	fmt.Printf("running TestGetNamedEntity\ns")
 
-	resp, err := Chat("who teaches cs727 this semester?")
+	aiClient := SetupAiClient()
+
+	resp, err := GetNamedEntity(aiClient, "What Courses is Phil Peterson teaching in Fall 2024?")
 	if err != nil {
 		t.Error(err)
 	}
