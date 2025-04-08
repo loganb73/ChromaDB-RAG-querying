@@ -52,15 +52,6 @@ func SetupDb() chroma.Client {
 		fmt.Printf("UnmarshalFile error: %v\n", err)
 	}
 
-	// jsonStrings := []string{}
-	// for _, class := range classes {
-	// 	classJson, err := json.Marshal(class)
-	// 	if err != nil {
-	// 		fmt.Printf("error marshalling struct: %s\n", err.Error())
-	// 	}
-	// 	jsonStrings = append(jsonStrings, string(classJson))
-	// }
-
 	//set up client and embedding function
 	client, err := chroma.NewClient("http://localhost:8000")
 	if err != nil {
@@ -73,15 +64,20 @@ func SetupDb() chroma.Client {
 	}
 
 	//create collections
-	collection, err := client.CreateCollection(context.TODO(), "my-collection", map[string]interface{}{"key1": "value1"}, true, openaiEf, types.L2)
+	collection, err := client.CreateCollection(context.TODO(), "full-collection", map[string]interface{}{}, true, openaiEf, types.L2)
 	if err != nil {
 		log.Fatalf("Failed to create collection: %v", err)
 	}
 
-	profCollection, err := client.CreateCollection(context.TODO(), "professor-collection", map[string]interface{}{"professor": "value1"}, true, openaiEf, types.L2)
+	profCollection, err := client.CreateCollection(context.TODO(), "professor-collection", map[string]interface{}{}, true, openaiEf, types.L2)
 	if err != nil {
 		log.Fatalf("Failed to create collection: %v", err)
 	}
+
+	// classCollection, err := client.CreateCollection(context.TODO(), "class-collection", map[string]interface{}{"professor": "value1"}, true, openaiEf, types.L2)
+	// if err != nil {
+	// 	log.Fatalf("Failed to create collection: %v", err)
+	// }
 
 	//create record sets
 	rs, err := types.NewRecordSet(
@@ -100,6 +96,7 @@ func SetupDb() chroma.Client {
 		log.Fatalf("Error creating record set: %s \n", err)
 	}
 
+	//loop over classes and add data to record sets
 	i := 0
 	for _, class := range classes {
 		classJson, err := json.Marshal(class)
@@ -107,10 +104,15 @@ func SetupDb() chroma.Client {
 			fmt.Printf("error marshalling struct: %s\n", err.Error())
 		}
 		rs.WithRecord(types.WithDocument(string(classJson)))
-		professorFullName := class.PrimaryInstructorFirstName + " " + class.PrimaryInstructorLastName
+
+		professorFullName := `{'instructor' : ` + class.PrimaryInstructorFirstName + " " + class.PrimaryInstructorLastName + `,}`
+		professorJson, err := json.Marshal(professorFullName)
+		if err != nil {
+			fmt.Printf("error marshalling prof: %s\n", err.Error())
+		}
 		//fmt.Printf("professorFullName: %s\n", professorFullName)
 		if professorFullName != "" { //don't add for classes without a professor
-			professorsRs.WithRecord(types.WithDocument(professorFullName))
+			professorsRs.WithRecord(types.WithDocument(string(professorJson)))
 			if err != nil {
 				fmt.Printf("error adding professor: %s\n", err.Error())
 			}
@@ -120,10 +122,12 @@ func SetupDb() chroma.Client {
 			//buildandvalidate
 			_, err = rs.BuildAndValidate(context.TODO())
 			if err != nil {
+				fmt.Printf("Error validating record set full: %s \n", err)
 				log.Fatalf("Error validating record set full: %s \n", err)
 			}
 			_, err = professorsRs.BuildAndValidate(context.TODO())
 			if err != nil {
+				fmt.Printf("Error validating record set profs: %s \n", err)
 				log.Fatalf("Error validating record set profs: %s \n", err)
 			}
 			fmt.Printf("inserted %d docs\n", i)
@@ -134,10 +138,12 @@ func SetupDb() chroma.Client {
 	//insert stragglers (not caught by last batch insert)
 	_, err = rs.BuildAndValidate(context.TODO())
 	if err != nil {
+		fmt.Printf("Error validating record set full post loop: %s \n", err)
 		log.Fatalf("Error validating record set full post loop: %s \n", err)
 	}
 	_, err = professorsRs.BuildAndValidate(context.TODO())
 	if err != nil {
+		fmt.Printf("Error validating record set profs post loop: %s \n", err)
 		log.Fatalf("Error validating record set profs post loop: %s \n", err)
 	}
 
@@ -146,7 +152,8 @@ func SetupDb() chroma.Client {
 	if err != nil {
 		log.Fatalf("Error adding documents: %s \n", err)
 	}
-	_, err = profCollection.AddRecords(context.Background(), rs)
+
+	_, err = profCollection.AddRecords(context.Background(), professorsRs)
 	if err != nil {
 		log.Fatalf("Error adding documents: %s \n", err)
 	}
@@ -159,7 +166,7 @@ func SetupDb() chroma.Client {
 
 	// Query the collection
 	fmt.Printf("countDocs: %v\n", countDocs)
-	qr, qrerr := profCollection.Query(context.TODO(), []string{"phil peterson"}, 5, nil, nil, nil)
+	qr, qrerr := profCollection.Query(context.TODO(), []string{"phil peterson"}, 1, nil, nil, nil)
 	if qrerr != nil {
 		log.Fatalf("Error querying documents: %s \n", qrerr)
 	}
