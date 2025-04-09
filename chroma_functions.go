@@ -96,6 +96,9 @@ func SetupDb() chroma.Client {
 		log.Fatalf("Error creating record set: %s \n", err)
 	}
 
+	//make maps to avoid duplicate inserts
+	profMap := make(map[string]bool)
+
 	//loop over classes and add data to record sets
 	i := 0
 	for _, class := range classes {
@@ -105,26 +108,29 @@ func SetupDb() chroma.Client {
 		}
 		rs.WithRecord(types.WithDocument(string(classJson)))
 
-		professorFullName := `{'instructor' : ` + class.PrimaryInstructorFirstName + " " + class.PrimaryInstructorLastName + `,}`
-		professorJson, err := json.Marshal(professorFullName)
-		if err != nil {
-			fmt.Printf("error marshalling prof: %s\n", err.Error())
-		}
-		//fmt.Printf("professorFullName: %s\n", professorFullName)
+		professorFullName := class.PrimaryInstructorFirstName + class.PrimaryInstructorLastName
+
 		if professorFullName != "" { //don't add for classes without a professor
-			professorsRs.WithRecord(types.WithDocument(string(professorJson)))
-			if err != nil {
-				fmt.Printf("error adding professor: %s\n", err.Error())
+			_, exists := profMap[professorFullName]
+			if exists {
+				continue
+			} else {
+				professorsRs.WithRecord(types.WithDocument(string(professorFullName)))
+				if err != nil {
+					fmt.Printf("error adding professor: %s\n", err.Error())
+				}
+				profMap[professorFullName] = true
 			}
 		}
 
+		//build in batches
 		if ((i % 500) == 0) && i > 0 {
-			//buildandvalidate
 			_, err = rs.BuildAndValidate(context.TODO())
 			if err != nil {
 				fmt.Printf("Error validating record set full: %s \n", err)
 				log.Fatalf("Error validating record set full: %s \n", err)
 			}
+
 			_, err = professorsRs.BuildAndValidate(context.TODO())
 			if err != nil {
 				fmt.Printf("Error validating record set profs: %s \n", err)
