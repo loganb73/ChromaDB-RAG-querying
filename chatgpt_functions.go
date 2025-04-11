@@ -17,7 +17,7 @@ func SetupAiClient() (aiClient *openai.Client) {
 
 func GetNamedEntities(aiClient *openai.Client, prompt string) (namedEntityJson string, err error) {
 
-	fullPrompt := "In this question, identify the names of people, locations, and university departments. If you don't find any of the following, write the json field as `[]`." + prompt
+	fullPrompt := "In this question, identify the names of people, locations, and university departments. If you don't find any of the following, write the json field as ``. Do not put square brackets around filled fields." + prompt
 
 	messages := []openai.ChatCompletionMessage{
 		{
