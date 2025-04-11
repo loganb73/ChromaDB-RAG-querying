@@ -17,7 +17,7 @@ func TestQueryDb(t *testing.T) {
 }
 
 func TestPhil(t *testing.T) {
-	queryString := "What courses is Phil Peterson teaching in Fall 2024?"
+	queryString := "I would like to take a Rhetoric course from Phil Choong. What can I take?"
 	aiClient := SetupAiClient()
 
 	namedEntities, err := GetNamedEntities(aiClient, queryString)
@@ -36,5 +36,14 @@ func TestPhil(t *testing.T) {
 	var resultStruct jsonStruct
 	json.Unmarshal([]byte(namedEntities), &resultStruct)
 
-	fmt.Printf("query contains canonical name: %s\n", resultStruct.People)
+	if resultStruct.People != "" {
+		fmt.Printf("query contains canonical name: %s\n", resultStruct.People)
+	}
+	if resultStruct.Locations != "" {
+		fmt.Printf("query contains canonical location: %s\n", resultStruct.Locations)
+	}
+	if resultStruct.Departments != "" {
+		fmt.Printf("query contains canonical department: %s\n", resultStruct.Departments)
+	}
+
 }
