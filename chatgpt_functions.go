@@ -15,9 +15,9 @@ func SetupAiClient() (aiClient *openai.Client) {
 	return aiClient
 }
 
-func GetNamedEntity(aiClient *openai.Client, prompt string) (namedEntityJson string, err error) {
+func GetNamedEntities(aiClient *openai.Client, prompt string) (namedEntityJson string, err error) {
 
-	fullPrompt := "respond with the full name of the person named in this question. " + prompt
+	fullPrompt := "In this question, identify the names of people, locations, and university departments. If you don't find any of the following, write the json field as `[]`." + prompt
 
 	messages := []openai.ChatCompletionMessage{
 		{
@@ -27,7 +27,7 @@ func GetNamedEntity(aiClient *openai.Client, prompt string) (namedEntityJson str
 		{
 			Role: openai.ChatMessageRoleSystem,
 			Content: `You are a chatbot 
-			which answers question about the USF course catalog and gives responses in JSON format`,
+			which answers question about the USF course catalog and gives responses in JSON format with keys 'people' 'locations' and 'departments'`,
 		},
 	}
 
