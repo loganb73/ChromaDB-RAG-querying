@@ -9,7 +9,7 @@ import (
 
 func SetupAiClient() (aiClient *openai.Client) {
 	//openai setup
-	openaiKey := os.Getenv("openai_key_temp")
+	openaiKey := os.Getenv("OPENAI_API_KEY")
 
 	aiClient = openai.NewClient(openaiKey)
 	return aiClient

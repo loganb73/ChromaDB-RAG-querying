@@ -10,12 +10,6 @@ type GetNamedEntitiesStruct struct {
 	expectedJson string
 }
 
-type namedEntitiesContainer struct {
-	people      string `json:"people"`
-	locations   string `json:"locations"`
-	departments string `json:"departments"`
-}
-
 func setupNamedEntityTestCases() []GetNamedEntitiesStruct {
 	return []GetNamedEntitiesStruct{
 		{"What courses is Phil Peterson teaching in Fall 2024?",

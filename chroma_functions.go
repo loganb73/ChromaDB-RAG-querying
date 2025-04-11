@@ -58,7 +58,7 @@ func SetupDb() chroma.Client {
 		log.Fatalf("Error creating client: %s \n", err)
 	}
 
-	openaiEf, err := chromaOpenai.NewOpenAIEmbeddingFunction(os.Getenv("openai_key_temp"))
+	openaiEf, err := chromaOpenai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
 	if err != nil {
 		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
 	}
@@ -74,10 +74,15 @@ func SetupDb() chroma.Client {
 		log.Fatalf("Failed to create collection: %v", err)
 	}
 
-	// classCollection, err := client.CreateCollection(context.TODO(), "class-collection", map[string]interface{}{"professor": "value1"}, true, openaiEf, types.L2)
-	// if err != nil {
-	// 	log.Fatalf("Failed to create collection: %v", err)
-	// }
+	departmentCollection, err := client.CreateCollection(context.TODO(), "class-collection", map[string]interface{}{}, true, openaiEf, types.L2)
+	if err != nil {
+		log.Fatalf("Failed to create collection: %v", err)
+	}
+
+	locationCollection, err := client.CreateCollection(context.TODO(), "location-collection", map[string]interface{}{}, true, openaiEf, types.L2)
+	if err != nil {
+		log.Fatalf("Failed to create collection: %v", err)
+	}
 
 	//create record sets
 	rs, err := types.NewRecordSet(
@@ -96,45 +101,48 @@ func SetupDb() chroma.Client {
 		log.Fatalf("Error creating record set: %s \n", err)
 	}
 
+	departmentsRs, err := types.NewRecordSet(
+		types.WithEmbeddingFunction(collection.EmbeddingFunction), // we pass the embedding function from the collection
+		types.WithIDGenerator(types.NewULIDGenerator()),
+	)
+	if err != nil {
+		log.Fatalf("Error creating record set: %s \n", err)
+	}
+
+	locationsRs, err := types.NewRecordSet(
+		types.WithEmbeddingFunction(collection.EmbeddingFunction), // we pass the embedding function from the collection
+		types.WithIDGenerator(types.NewULIDGenerator()),
+	)
+	if err != nil {
+		log.Fatalf("Error creating record set: %s \n", err)
+	}
+
 	//make maps to avoid duplicate inserts
 	profMap := make(map[string]bool)
+	departmentMap := make(map[string]bool)
+	locationMap := make(map[string]bool)
 
 	//loop over classes and add data to record sets
 	i := 0
 	for _, class := range classes {
+		fmt.Printf("on loop %d\n", i)
 		classJson, err := json.Marshal(class)
 		if err != nil {
 			fmt.Printf("error marshalling struct: %s\n", err.Error())
 		}
 		rs.WithRecord(types.WithDocument(string(classJson)))
 
-		professorFullName := class.PrimaryInstructorFirstName + class.PrimaryInstructorLastName
-
-		if professorFullName != "" { //don't add for classes without a professor
-			_, exists := profMap[professorFullName]
-			if exists {
-				continue
-			} else {
-				professorsRs.WithRecord(types.WithDocument(string(professorFullName)))
-				if err != nil {
-					fmt.Printf("error adding professor: %s\n", err.Error())
-				}
-				profMap[professorFullName] = true
-			}
-		}
+		//update all helper record sets
+		professorFullName := class.PrimaryInstructorFirstName + " " + class.PrimaryInstructorLastName
+		professorsRs = UpdateRecordset(professorsRs, professorFullName, profMap, "professor")
+		departmentsRs = UpdateRecordset(departmentsRs, class.Subj, departmentMap, "department")
+		locationsRs = UpdateRecordset(locationsRs, class.Bldg, locationMap, "location")
 
 		//build in batches
 		if ((i % 500) == 0) && i > 0 {
 			_, err = rs.BuildAndValidate(context.TODO())
 			if err != nil {
-				fmt.Printf("Error validating record set full: %s \n", err)
 				log.Fatalf("Error validating record set full: %s \n", err)
-			}
-
-			_, err = professorsRs.BuildAndValidate(context.TODO())
-			if err != nil {
-				fmt.Printf("Error validating record set profs: %s \n", err)
-				log.Fatalf("Error validating record set profs: %s \n", err)
 			}
 			fmt.Printf("inserted %d docs\n", i)
 		}
@@ -144,13 +152,7 @@ func SetupDb() chroma.Client {
 	//insert stragglers (not caught by last batch insert)
 	_, err = rs.BuildAndValidate(context.TODO())
 	if err != nil {
-		fmt.Printf("Error validating record set full post loop: %s \n", err)
 		log.Fatalf("Error validating record set full post loop: %s \n", err)
-	}
-	_, err = professorsRs.BuildAndValidate(context.TODO())
-	if err != nil {
-		fmt.Printf("Error validating record set profs post loop: %s \n", err)
-		log.Fatalf("Error validating record set profs post loop: %s \n", err)
 	}
 
 	// Add the records to the collection
@@ -160,6 +162,16 @@ func SetupDb() chroma.Client {
 	}
 
 	_, err = profCollection.AddRecords(context.Background(), professorsRs)
+	if err != nil {
+		log.Fatalf("Error adding documents: %s \n", err)
+	}
+
+	_, err = departmentCollection.AddRecords(context.Background(), departmentsRs)
+	if err != nil {
+		log.Fatalf("Error adding documents: %s \n", err)
+	}
+
+	_, err = locationCollection.AddRecords(context.Background(), locationsRs)
 	if err != nil {
 		log.Fatalf("Error adding documents: %s \n", err)
 	}
@@ -179,4 +191,26 @@ func SetupDb() chroma.Client {
 	fmt.Printf("qr: %v\n", qr.Documents[0])
 
 	return *client
+}
+
+func UpdateRecordset(rs *types.RecordSet, insertString string, existanceMap map[string]bool, metadataTitle string) (updatedRs *types.RecordSet) {
+
+	//don't add empty strings (space is for professor names concatenated with a space in between)
+	if insertString == "" || insertString == " " {
+		return rs
+	}
+
+	//insert if does not already exist in record set
+	_, exists := existanceMap[insertString]
+	if exists {
+		return rs
+	} else {
+		updatedRs = rs.WithRecord(types.WithDocument(string(insertString)), types.WithMetadata(metadataTitle, insertString))
+		existanceMap[insertString] = true
+		_, err := rs.BuildAndValidate(context.TODO())
+		if err != nil {
+			log.Fatalf("Error validating record set profs post loop: %s \n", err)
+		}
+		return updatedRs
+	}
 }
