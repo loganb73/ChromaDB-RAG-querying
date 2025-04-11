@@ -64,22 +64,22 @@ func SetupDb() chroma.Client {
 	}
 
 	//create collections
-	collection, err := client.CreateCollection(context.TODO(), "full-collection", map[string]interface{}{}, true, openaiEf, types.L2)
+	collection, err := client.CreateCollection(context.TODO(), "full-collection", map[string]any{}, true, openaiEf, types.L2)
 	if err != nil {
 		log.Fatalf("Failed to create collection: %v", err)
 	}
 
-	profCollection, err := client.CreateCollection(context.TODO(), "professor-collection", map[string]interface{}{}, true, openaiEf, types.L2)
+	profCollection, err := client.CreateCollection(context.TODO(), "professor-collection", map[string]any{}, true, openaiEf, types.L2)
 	if err != nil {
 		log.Fatalf("Failed to create collection: %v", err)
 	}
 
-	departmentCollection, err := client.CreateCollection(context.TODO(), "class-collection", map[string]interface{}{}, true, openaiEf, types.L2)
+	departmentCollection, err := client.CreateCollection(context.TODO(), "class-collection", map[string]any{}, true, openaiEf, types.L2)
 	if err != nil {
 		log.Fatalf("Failed to create collection: %v", err)
 	}
 
-	locationCollection, err := client.CreateCollection(context.TODO(), "location-collection", map[string]interface{}{}, true, openaiEf, types.L2)
+	locationCollection, err := client.CreateCollection(context.TODO(), "location-collection", map[string]any{}, true, openaiEf, types.L2)
 	if err != nil {
 		log.Fatalf("Failed to create collection: %v", err)
 	}
@@ -130,13 +130,15 @@ func SetupDb() chroma.Client {
 		if err != nil {
 			fmt.Printf("error marshalling struct: %s\n", err.Error())
 		}
-		rs.WithRecord(types.WithDocument(string(classJson)))
 
 		//update all helper record sets
 		professorFullName := class.PrimaryInstructorFirstName + " " + class.PrimaryInstructorLastName
 		professorsRs = UpdateRecordset(professorsRs, professorFullName, profMap, "professor")
 		departmentsRs = UpdateRecordset(departmentsRs, class.Subj, departmentMap, "department")
 		locationsRs = UpdateRecordset(locationsRs, class.Bldg, locationMap, "location")
+
+		//update full record set with all info
+		rs.WithRecord(types.WithDocument(string(classJson)), types.WithMetadata("professor", professorFullName), types.WithMetadata("subject", class.Subj), types.WithMetadata("location", class.Bldg))
 
 		//build in batches
 		if ((i % 500) == 0) && i > 0 {
@@ -213,4 +215,30 @@ func UpdateRecordset(rs *types.RecordSet, insertString string, existanceMap map[
 		}
 		return updatedRs
 	}
+}
+
+func QueryDb(queryString string, collectionName string) (resp []string) {
+	ctx := context.Background()
+	client, err := chroma.NewClient("http://localhost:8000") //connects to localhost:8000
+
+	if err != nil {
+		fmt.Printf("Failed to create client: %v", err)
+	}
+
+	openaiEf, err := chromaOpenai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+	if err != nil {
+		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
+	}
+
+	collection, err := client.GetCollection(ctx, "full-collection", openaiEf)
+	if err != nil {
+		log.Fatalf("Failed to create collection: %v", err)
+	}
+
+	data, err := collection.Query(context.TODO(), []string{queryString}, 1, nil, nil, nil)
+	if err != nil {
+		log.Fatalf("Error querying documents: %v\n", err)
+	}
+
+	return data.Documents[0]
 }
