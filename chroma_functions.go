@@ -64,7 +64,7 @@ func SetupDb() chroma.Client {
 	}
 
 	//create collections
-	collection, err := client.CreateCollection(context.TODO(), "full-collection", map[string]any{}, true, openaiEf, types.L2)
+	collection, err := client.CreateCollection(context.TODO(), "full-collection", map[string]any{"professor": "name", "department": "dname", "location": "bname"}, true, openaiEf, types.L2)
 	if err != nil {
 		log.Fatalf("Failed to create collection: %v", err)
 	}
@@ -138,7 +138,14 @@ func SetupDb() chroma.Client {
 		locationsRs = UpdateRecordset(locationsRs, class.Bldg, locationMap, "location")
 
 		//update full record set with all info
-		rs.WithRecord(types.WithDocument(string(classJson)), types.WithMetadata("professor", professorFullName), types.WithMetadata("subject", class.Subj), types.WithMetadata("location", class.Bldg))
+		//rs.WithRecord(types.WithDocument(string(classJson)), types.WithMetadata("professor", professorFullName), types.WithMetadata("subject", class.Subj), types.WithMetadata("location", class.Bldg))
+
+		//test approach
+		metadata := map[string]interface{}{}
+		metadata["professor"] = professorFullName
+		metadata["department"] = class.Subj
+		metadata["location"] = class.Bldg
+		rs.WithRecord(types.WithDocument(string(classJson)), types.WithMetadatas(metadata))
 
 		//build in batches
 		if ((i % 500) == 0) && i > 0 {
@@ -179,7 +186,7 @@ func SetupDb() chroma.Client {
 	}
 
 	// Count the number of documents in the collection
-	countDocs, qrerr := profCollection.Count(context.TODO())
+	countDocs, qrerr := collection.Count(context.TODO())
 	if qrerr != nil {
 		log.Fatalf("Error counting documents: %s \n", qrerr)
 	}
@@ -236,6 +243,35 @@ func QueryDb(queryString string, collectionName string) (resp []string) {
 	}
 
 	data, err := collection.Query(context.TODO(), []string{queryString}, 1, nil, nil, nil)
+	if err != nil {
+		log.Fatalf("Error querying documents: %v\n", err)
+	}
+
+	return data.Documents[0]
+}
+
+func QueryWithMetadata(queryString string, collectionName string) (resp []string) {
+	ctx := context.Background()
+	client, err := chroma.NewClient("http://localhost:8000") //connects to localhost:8000
+
+	if err != nil {
+		fmt.Printf("Failed to create client: %v", err)
+	}
+
+	openaiEf, err := chromaOpenai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
+	if err != nil {
+		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
+	}
+
+	collection, err := client.GetCollection(ctx, "full-collection", openaiEf)
+	if err != nil {
+		log.Fatalf("Failed to create collection: %v", err)
+	}
+
+	metadata := make(map[string]interface{})
+	metadata["instructor"] = "phil peterson"
+
+	data, err := collection.Query(context.TODO(), []string{queryString}, 1, metadata, nil, nil)
 	if err != nil {
 		log.Fatalf("Error querying documents: %v\n", err)
 	}
