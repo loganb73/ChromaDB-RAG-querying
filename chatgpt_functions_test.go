@@ -97,3 +97,8 @@ func TestPhil(t *testing.T) {
 	}
 
 }
+
+func TestRagQuery(t *testing.T) {
+	aiClient := SetupAiClient()
+	RagQuery(aiClient, "Which philosophy courses are offered this semester?")
+}

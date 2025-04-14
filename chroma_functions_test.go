@@ -17,6 +17,10 @@ func TestQueryDb(t *testing.T) {
 
 func TestMetadataQuery(t *testing.T) {
 	fmt.Printf("running TestQueryDb\n")
-	resp := QueryDb("Where does Bioinformatics meet?", "full-collection")
+	metadata := make(map[string]interface{})
+	metadata["instructor"] = "phil peterson"
+	metadata["location"] = "KA"
+
+	resp := QueryWithMetadata("Where does Bioinformatics meet?", "full-collection", metadata)
 	fmt.Print(resp)
 }

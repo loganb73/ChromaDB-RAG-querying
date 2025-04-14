@@ -2,6 +2,9 @@ package project05loganb73
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"log"
 	"os"
 
 	"github.com/sashabaranov/go-openai"
@@ -42,4 +45,45 @@ func GetNamedEntities(aiClient *openai.Client, prompt string) (namedEntityJson s
 	}
 
 	return resp.Choices[0].Message.Content, nil
+}
+
+func RagQuery(aiClient *openai.Client, prompt string) (resp string, err error) {
+	fmt.Printf("running RagQuery\n")
+
+	namedEntityJson, err := GetNamedEntities(aiClient, prompt)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	type jsonStruct struct {
+		People      string `json:"people"`
+		Locations   string `json:"locations"`
+		Departments string `json:"departments"`
+	}
+	var resultStruct jsonStruct
+	json.Unmarshal([]byte(namedEntityJson), &resultStruct)
+
+	metadata := make(map[string]interface{})
+
+	if resultStruct.People != "" {
+		canonicalName := QueryDb(resultStruct.People, "professor-collection")
+		metadata["professor"] = canonicalName
+	}
+	if resultStruct.Locations != "" {
+		canonicalLocation := QueryDb(resultStruct.People, "location-collection")
+		metadata["location"] = canonicalLocation
+	}
+	if resultStruct.Departments != "" {
+		canonicalDepartment := QueryDb(resultStruct.People, "class-collection")
+		metadata["department"] = canonicalDepartment
+	}
+
+	return "end of function", nil
+}
+
+func GetCanonicalName(fuzzyName string) (canonicalName string) {
+	switch fuzzyName {
+
+	}
+	return canonicalName
 }
