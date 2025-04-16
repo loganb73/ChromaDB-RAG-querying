@@ -187,7 +187,11 @@ func SetupDb() chroma.Client {
 
 	// Query the collection
 	fmt.Printf("countDocs: %v\n", countDocs)
-	qr, qrerr := profCollection.Query(context.TODO(), []string{"phil peterson"}, 1, nil, nil, nil)
+
+	metadata := make(map[string]interface{})
+	metadata["professor"] = "Philip Peterson"
+
+	qr, qrerr := collection.Query(context.TODO(), []string{"phil"}, 1, metadata, nil, nil)
 	if qrerr != nil {
 		log.Fatalf("Error querying documents: %s \n", qrerr)
 	}
@@ -245,7 +249,6 @@ func QueryDb(queryString string, collectionName string) (resp []string) {
 }
 
 func QueryWithMetadata(queryString string, collectionName string, metadata map[string]interface{}) (resp []string) {
-	ctx := context.Background()
 	client, err := chroma.NewClient("http://localhost:8000") //connects to localhost:8000
 
 	if err != nil {
@@ -257,7 +260,7 @@ func QueryWithMetadata(queryString string, collectionName string, metadata map[s
 		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
 	}
 
-	collection, err := client.GetCollection(ctx, "full-collection", openaiEf)
+	collection, err := client.GetCollection(context.TODO(), "full-collection", openaiEf)
 	if err != nil {
 		log.Fatalf("Failed to create collection: %v", err)
 	}
