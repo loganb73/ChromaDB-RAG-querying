@@ -1,4 +1,4 @@
-package project05loganb73
+package main
 
 import (
 	"context"
@@ -240,6 +240,7 @@ func QueryDb(queryString string, collectionName string) (resp []string) {
 		log.Fatalf("Failed to create collection: %v", err)
 	}
 
+	// Ensure queryString is passed as a slice of strings
 	data, err := collection.Query(context.TODO(), []string{queryString}, 1, nil, nil, nil)
 	if err != nil {
 		log.Fatalf("Error querying documents: %v\n", err)
@@ -265,7 +266,27 @@ func QueryWithMetadata(queryString string, collectionName string, metadata map[s
 		log.Fatalf("Failed to create collection: %v", err)
 	}
 
-	data, err := collection.Query(context.TODO(), []string{queryString}, 1, metadata, nil, nil)
+	// Convert flat metadata map to ChromaDB's where clause format
+	where := make(map[string]interface{})
+	if len(metadata) > 1 {
+		// If multiple filters, use $and operator
+		conditions := make([]map[string]interface{}, 0)
+		for key, value := range metadata {
+			condition := map[string]interface{}{
+				key: value,
+			}
+			conditions = append(conditions, condition)
+		}
+		where["$and"] = conditions
+	} else {
+		// For single filter, use direct mapping
+		for key, value := range metadata {
+			where[key] = value
+		}
+	}
+
+	// Ensure queryString is passed as a slice of strings
+	data, err := collection.Query(context.TODO(), []string{queryString}, 1, where, nil, nil)
 	if err != nil {
 		log.Fatalf("Error querying documents: %v\n", err)
 	}

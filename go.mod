@@ -1,4 +1,4 @@
-module project05loganb73
+module github.com/loganb73/cs272/project05-loganb73
 
 go 1.23.5
 

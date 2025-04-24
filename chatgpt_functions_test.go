@@ -1,9 +1,11 @@
-package project05loganb73
+package main_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	. "github.com/loganb73/cs272/project05-loganb73"
 )
 
 type GetNamedEntitiesStruct struct {
@@ -65,7 +67,6 @@ func TestGetNamedEntities(t *testing.T) {
 			t.Errorf("resp:\n%s\ndoesn't match expected:\n%s\n\n", cleanResultString, test.expectedJson)
 		}
 	}
-
 }
 
 func TestPhil(t *testing.T) {
@@ -95,7 +96,6 @@ func TestPhil(t *testing.T) {
 	if resultStruct.Departments != "" {
 		fmt.Printf("query contains canonical department: %s\n", resultStruct.Departments)
 	}
-
 }
 
 func TestRagQuery(t *testing.T) {
