@@ -135,11 +135,11 @@ func SetupDb() chroma.Client {
 		//update all helper record sets
 		professorFullName := class.PrimaryInstructorFirstName + " " + class.PrimaryInstructorLastName
 		professorsRs = UpdateRecordset(professorsRs, professorFullName, profMap, "professor")
-		departmentsRs = UpdateRecordset(departmentsRs, class.Subj, departmentMap, "department")
-		locationsRs = UpdateRecordset(locationsRs, class.Bldg, locationMap, "location")
+		departmentsRs = UpdateRecordset(departmentsRs, class.Subj, departmentMap, "SUBJ")
+		locationsRs = UpdateRecordset(locationsRs, class.Bldg, locationMap, "BLDG")
 
 		//update full record set with all info
-		rs.WithRecord(types.WithDocument(string(classJson)), types.WithMetadata("professor", professorFullName), types.WithMetadata("subject", class.Subj), types.WithMetadata("location", class.Bldg))
+		rs.WithRecord(types.WithDocument(string(classJson)), types.WithMetadata("professor", professorFullName), types.WithMetadata("SUBJ", class.Subj), types.WithMetadata("BLDG", class.Bldg))
 
 		//build in batches
 		if ((i % 500) == 0) && i > 0 {
@@ -228,68 +228,84 @@ func QueryDb(queryString string, collectionName string) (resp []string) {
 
 	if err != nil {
 		fmt.Printf("Failed to create client: %v", err)
+		return nil
 	}
 
 	openaiEf, err := chromaOpenai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
 	if err != nil {
-		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
+		log.Printf("Error creating OpenAI embedding function: %s \n", err)
+		return nil
 	}
 
-	collection, err := client.GetCollection(ctx, "full-collection", openaiEf)
+	collection, err := client.GetCollection(ctx, collectionName, openaiEf)
 	if err != nil {
-		log.Fatalf("Failed to create collection: %v", err)
+		log.Printf("Failed to get collection: %v", err)
+		return nil
 	}
 
 	// Ensure queryString is passed as a slice of strings
 	data, err := collection.Query(context.TODO(), []string{queryString}, 1, nil, nil, nil)
 	if err != nil {
-		log.Fatalf("Error querying documents: %v\n", err)
+		log.Printf("Error querying documents: %v\n", err)
+		return nil
+	}
+
+	if len(data.Documents) == 0 {
+		log.Printf("No documents found for query: %s\n", queryString)
+		return nil
 	}
 
 	return data.Documents[0]
 }
 
 func QueryWithMetadata(queryString string, collectionName string, metadata map[string]interface{}) (resp []string) {
-	client, err := chroma.NewClient("http://localhost:8000") //connects to localhost:8000
+	fmt.Printf("\n=== QueryWithMetadata Start ===\n")
+	client, err := chroma.NewClient("http://localhost:8000")
+	fmt.Printf("Query params:\n- String: %q\n- Collection: %q\n- Metadata: %#v\n", queryString, collectionName, metadata)
 
 	if err != nil {
-		fmt.Printf("Failed to create client: %v", err)
+		fmt.Printf("Failed to create client: %v\n", err)
+		return nil
 	}
 
 	openaiEf, err := chromaOpenai.NewOpenAIEmbeddingFunction(os.Getenv("OPENAI_API_KEY"))
 	if err != nil {
-		log.Fatalf("Error creating OpenAI embedding function: %s \n", err)
+		fmt.Printf("OpenAI embedding function error: %v\n", err)
+		return nil
 	}
 
-	collection, err := client.GetCollection(context.TODO(), "full-collection", openaiEf)
+	collection, err := client.GetCollection(context.TODO(), collectionName, openaiEf)
 	if err != nil {
-		log.Fatalf("Failed to create collection: %v", err)
+		fmt.Printf("Get collection error: %v\n", err)
+		return nil
 	}
 
-	// Convert flat metadata map to ChromaDB's where clause format
+	// If test query didn't work, try with metadata
 	where := make(map[string]interface{})
-	if len(metadata) > 1 {
-		// If multiple filters, use $and operator
-		conditions := make([]map[string]interface{}, 0)
+	if len(metadata) > 0 {
 		for key, value := range metadata {
-			condition := map[string]interface{}{
-				key: value,
+			where[key] = map[string]interface{}{
+				"$eq": value,
 			}
-			conditions = append(conditions, condition)
-		}
-		where["$and"] = conditions
-	} else {
-		// For single filter, use direct mapping
-		for key, value := range metadata {
-			where[key] = value
 		}
 	}
 
-	// Ensure queryString is passed as a slice of strings
+	fmt.Printf("Using where clause: %#v\n", where)
+
+	// Query with metadata
 	data, err := collection.Query(context.TODO(), []string{queryString}, 1, where, nil, nil)
 	if err != nil {
-		log.Fatalf("Error querying documents: %v\n", err)
+		fmt.Printf("Query error: %v\n", err)
+		return nil
 	}
 
-	return data.Documents[0]
+	fmt.Printf("Query with metadata returned %d documents\n", len(data.Documents))
+	if len(data.Documents) > 0 && len(data.Documents[0]) > 0 {
+		docStr := data.Documents[0][0]
+		fmt.Printf("Document with metadata: %s\n", docStr)
+		return []string{docStr}
+	}
+
+	fmt.Printf("=== QueryWithMetadata End ===\n")
+	return nil
 }

@@ -7,9 +7,9 @@ import (
 	. "github.com/loganb73/cs272/project05-loganb73"
 )
 
-// func TestSetupDb(t *testing.T) {
-// 	SetupDb()
-// }
+func TestSetupDb(t *testing.T) {
+	SetupDb()
+}
 
 func TestQueryDb(t *testing.T) {
 	fmt.Printf("running TestQueryDb\n")
