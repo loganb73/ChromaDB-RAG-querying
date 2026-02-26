@@ -1,0 +1,1 @@
+Searching USFCA course catalog using RAG querying in ChromaDB with ChatGPT API and embeddings
