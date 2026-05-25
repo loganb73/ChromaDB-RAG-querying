@@ -64,7 +64,6 @@ func SetupDb() chroma.Client {
 	}
 
 	//create collections
-	//collection, err := client.CreateCollection(context.TODO(), "full-collection", map[string]any{"professor": "name", "department": "dname", "location": "bname"}, true, openaiEf, types.L2)
 	collection, err := client.CreateCollection(context.TODO(), "full-collection", map[string]any{}, true, openaiEf, types.L2)
 	if err != nil {
 		log.Fatalf("Failed to create collection: %v", err)
